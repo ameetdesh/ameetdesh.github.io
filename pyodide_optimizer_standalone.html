@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Battery Optimizer (DP + Quiver Overlay)</title>
+<style>
+  :root { --bg:#0b1020; --fg:#e7e9ee; --muted:#9aa4b2; }
+  html, body { height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,system-ui; display:grid; place-items:center; }
+  .card { width:min(1200px,96vw); background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.35); padding:28px 24px; }
+  h1 { margin:0 0 6px; font-size:22px; font-weight:700; }
+  p.sub { margin:0 0 18px; color:var(--muted); }
+  .rows { display:grid; gap:10px; }
+  .row { display:grid; grid-template-columns:220px 1fr auto; gap:12px; align-items:center; }
+  input[type="range"] { width:100%; accent-color:#7aa2ff; }
+  input[type="number"] { width:100px; padding:6px 8px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.07); color:var(--fg); }
+  .tag { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); padding:4px 8px; border-radius:10px; }
+  .plots { display:grid; grid-template-columns:1fr; gap:16px; margin-top:20px; }
+  @media (min-width:1100px){ .plots{ grid-template-columns:1fr 1fr; } }
+  .plot-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:12px; }
+  canvas { width:100%; height:300px; border-radius:12px; background:rgba(0,0,0,0.2); display:block; }
+  .plot-title { margin:6px 0 10px; font-weight:600; font-size:14px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; }
+  .legend { display:flex; gap:10px; font-size:12px; color:#cbd5e1; }
+  .sw { width:10px; height:10px; border-radius:2px; display:inline-block; }
+  .status { margin-top:10px; font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Battery Optimizer</h1>
+  <p class="sub">Fast local optimization + inference, using python + webassembly.</p>
+
+  <div class="rows">
+    <div class="row">
+      <label>Battery capacity (kWh)</label>
+      <input id="capacity" type="range" min="1" max="200" value="40" step="1"/>
+      <span id="capLabel" class="tag">40 kWh</span>
+    </div>
+    <div class="row">
+      <label>Max power (kW)</label>
+      <input id="pmax" type="range" min="1" max="50" value="5" step="1"/>
+      <span id="pmaxLabel" class="tag">5 kW</span>
+    </div>
+    <div class="row">
+      <label>Min energy (% capacity)</label>
+      <input id="minpct" type="number" min="0" max="100" step="1" value="10"/>
+    </div>
+  </div>
+
+  <div class="plots">
+    <div class="plot-card" style="grid-column:1/-1;">
+      <div class="plot-title">
+        <span>Inputs: Prices ($/kWh, left) & Load (kW, right)</span>
+        <span class="legend">
+          <span><span class="sw" style="background:#93c5fd"></span> buy</span>
+          <span><span class="sw" style="background:#fca5a5"></span> sell</span>
+          <span><span class="sw" style="background:#a7f3d0"></span> load</span>
+        </span>
+      </div>
+      <canvas id="plotPrices"></canvas>
+    </div>
+    <div class="plot-card" style="grid-column:1/-1;">
+      <div class="plot-title"><span id="socTitle">State of Charge</span></div>
+      <canvas id="plotSOC"></canvas>
+    </div>
+    <div class="plot-card" style="grid-column:1/-1;">
+      <div class="plot-title">
+        <span>Power flows (kW)</span>
+        <span class="legend">
+          <span><span class="sw" style="background:#c084fc"></span> charge</span>
+          <span><span class="sw" style="background:#34d399"></span> import (charge + load)</span>
+        </span>
+      </div>
+      <canvas id="plotPower"></canvas>
+    </div>
+  </div>
+
+  <div id="status" class="status">Loading Pyodide…</div>
+</div>
+
+<script type="module">
+const status = document.getElementById("status");
+function debounce(fn, ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};}
+let runScheduled = false;
+
+// Auto-run DP solve
+const scheduleSolve = debounce(() => {
+  if (!window.pyodide) return;
+  status.textContent = "Solving DP…";
+  runDPSolve();
+}, 200);
+
+// Load Pyodide
+self.pyodideLogLevel = "error";  // verbose
+// options: "error", "warn", "info", "debug"
+import { gunzipSync } from "https://cdn.jsdelivr.net/npm/fflate/+esm";
+import("https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs").then(async ({ loadPyodide }) => {
+  window.pyodide = await loadPyodide({ stdout: console.log, stderr: console.error });
+  await pyodide.loadPackage("numpy");
+
+  const b64code = `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`;
+  //  const dpCode = await (await fetch("utils.py")).text();
+  const dpCode = new TextDecoder().decode(
+      gunzipSync(Uint8Array.from(atob(b64code), c => c.charCodeAt(0)))
+  );
+
+    console.log("✅ Gzipped + obfuscated Pyodide module loaded successfully.");
+  const pythonCode = `
+# Attach JS proxies
+for cid in ["plotPrices"]:
+    c = document.getElementById(cid)
+    c.addEventListener("mousedown", create_proxy(on_mousedown))
+    c.addEventListener("mousemove", create_proxy(on_mousemove))
+    c.addEventListener("mouseup", create_proxy(on_mouseup))
+  `
+  await pyodide.runPythonAsync(dpCode + pythonCode);
+
+  // Unified input listeners
+  document.getElementById("capacity").addEventListener("input", e=>{
+    document.getElementById("capLabel").textContent = e.target.value+" kWh";
+    scheduleSolve();
+  });
+  document.getElementById("pmax").addEventListener("input", e=>{
+    document.getElementById("pmaxLabel").textContent = e.target.value+" kW";
+    scheduleSolve();
+  });
+  document.getElementById("minpct").addEventListener("input", scheduleSolve);
+
+  ["plotPrices"].forEach(cid=>{
+    document.getElementById(cid).addEventListener("mouseup", scheduleSolve);
+  })
+  // Rollout on SOC hover
+  status.textContent = "Running initial solve…";
+  await runDPSolve();
+
+  const socCanvas = document.getElementById("plotSOC");
+  socCanvas.addEventListener("mousemove", debounce(async ev=>{
+    if (!pyodide.globals.get("dp_ready")) return;
+    const r = socCanvas.getBoundingClientRect();
+    const x = (ev.clientX - r.left) / r.width;
+    const y = (ev.clientY - r.top) / r.height;
+    const cap = parseFloat(document.getElementById("capacity").value);
+    const pmax = parseFloat(document.getElementById("pmax").value);
+    const t0 = Math.floor(x * 96);
+    const s0 = (1-y)*cap;
+
+    try {
+      await pyodide.runPythonAsync(`
+xs_out, ys_soc, ys_pow = rollout(${t0}, ${s0}, ${cap}, ${pmax}, buy, sell, load)
+draw_hover_path(xs_out, ys_soc, ys_pow, ${cap}, ${pmax})
+`);
+      const dp_elapsed = pyodide.globals.get("dp_elapsed_time");
+      const rollout_elapsed = pyodide.globals.get("rollout_elapsed_time");
+      status.textContent = `✅ Solve: ${dp_elapsed.toFixed(1)} ms | Rollout inference: ${rollout_elapsed.toFixed(1)} ms`;
+    } catch(e){console.error(e);}
+  }, 10));
+
+
+});
+
+// JS wrapper for DP solve
+async function runDPSolve(){
+  try {
+    await pyodide.runPythonAsync(`
+buy, sell, load = expand_inputs(buy_ui=buy_ui, sell_ui=sell_ui, load_ui=load_ui)
+dp_elapsed_time = solve_dp(buy=buy, sell=sell, load=load,
+  cap=float(document.getElementById("capacity").value),
+  pmax=float(document.getElementById("pmax").value),
+  minpct=float(document.getElementById("minpct").value)
+)
+draw_quiver(float(document.getElementById("capacity").value),
+            float(document.getElementById("pmax").value))
+`);
+    const dp_elapsed = pyodide.globals.get("dp_elapsed_time");
+    status.textContent = `✅ Solve: ${dp_elapsed.toFixed(1)} ms`;
+  } catch(e) {
+    status.textContent = "❌ Solve error";
+    console.error(e);
+  }
+  }
+</script>
+</body>
+</html>
