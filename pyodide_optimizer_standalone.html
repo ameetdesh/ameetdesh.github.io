@@ -27,8 +27,13 @@
 </head>
 <body>
 <div class="card">
-  <h1>Battery Optimizer</h1>
-  <p class="sub">Fast local optimization + inference, using python + webassembly.</p>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+      <h1>Battery Optimizer</h1>
+      <p class="sub">Fast local optimization + inference, using python + webassembly.</p>
+    </div>
+    <div id="savingsDisplay" style="font-size:22px;font-weight:700;color:#34d399;white-space:nowrap;padding-top:2px;">—</div>
+  </div>
 
   <div class="rows">
     <div class="row">
@@ -37,9 +42,19 @@
       <span id="capLabel" class="tag">40 kWh</span>
     </div>
     <div class="row">
-      <label>Max power (kW)</label>
-      <input id="pmax" type="range" min="1" max="50" value="5" step="1"/>
-      <span id="pmaxLabel" class="tag">5 kW</span>
+      <label>Max charge power (kW)</label>
+      <input id="pmaxCharge" type="range" min="0" max="50" value="5" step="1"/>
+      <span id="pmaxChargeLabel" class="tag">5 kW</span>
+    </div>
+    <div class="row">
+      <label>Max discharge power (kW)</label>
+      <input id="pmaxDischarge" type="range" min="0" max="50" value="5" step="1"/>
+      <span id="pmaxDischargeLabel" class="tag">5 kW</span>
+    </div>
+    <div class="row">
+      <label></label>
+      <button id="pmaxLock" style="width:auto;padding:4px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:var(--fg);cursor:pointer;font-size:13px;">Linked</button>
+      <span></span>
     </div>
     <div class="row">
       <label>Min energy (% capacity)</label>
@@ -47,10 +62,23 @@
     </div>
   </div>
 
+  <details id="csvImport" style="margin-top:12px;">
+    <summary style="cursor:pointer;color:var(--muted);font-size:13px;">Import prices (CSV / paste)</summary>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:flex-start;">
+      <textarea id="csvText" rows="3" placeholder="Paste 24h prices (CSV or plain numbers). Pattern repeats for 48h horizon." style="flex:1;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:var(--fg);font-size:12px;resize:vertical;font-family:monospace;"></textarea>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <button id="loadBuy" style="padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(147,197,253,0.15);color:#93c5fd;cursor:pointer;font-size:12px;white-space:nowrap;">Load as Buy</button>
+        <button id="loadSell" style="padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(252,165,165,0.15);color:#fca5a5;cursor:pointer;font-size:12px;white-space:nowrap;">Load as Sell</button>
+        <label style="padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:var(--fg);cursor:pointer;font-size:12px;text-align:center;white-space:nowrap;">Upload CSV<input id="csvFile" type="file" accept=".csv,.txt" style="display:none;"/></label>
+        <a href="https://iexrtmprice.com/DSM_Data/" target="_blank" rel="noopener" style="font-size:11px;color:var(--muted);text-align:center;text-decoration:underline;">IEX DAM prices</a>
+      </div>
+    </div>
+  </details>
+
   <div class="plots">
     <div class="plot-card" style="grid-column:1/-1;">
       <div class="plot-title">
-        <span>Inputs: Prices ($/kWh, left) & Load (kW, right)</span>
+        <span>Inputs: Prices (left) & Load (kW, right)</span>
         <span class="legend">
           <span><span class="sw" style="background:#93c5fd"></span> buy</span>
           <span><span class="sw" style="background:#fca5a5"></span> sell</span>
@@ -60,8 +88,14 @@
       <canvas id="plotPrices"></canvas>
     </div>
     <div class="plot-card" style="grid-column:1/-1;">
-      <div class="plot-title"><span id="socTitle">State of Charge</span></div>
-      <canvas id="plotSOC"></canvas>
+      <div class="plot-title">
+        <span id="socTitle">State of Charge <label style="font-weight:400;font-size:12px;cursor:pointer;margin-left:8px;"><input id="flowToggle" type="checkbox" style="accent-color:#7aa2ff;vertical-align:-1px;"/> animate</label></span>
+        <span class="legend"><span style="color:#ff9a6c">shift+click</span> add gate | <span style="color:#ff9a6c">drag</span> move | <span style="color:#ff9a6c">dblclick</span> delete</span>
+      </div>
+      <div style="position:relative;">
+        <canvas id="plotSOC"></canvas>
+        <canvas id="plotSOCOverlay" style="position:absolute;top:0;left:0;width:100%;height:300px;pointer-events:none;border-radius:12px;background:transparent;"></canvas>
+      </div>
     </div>
     <div class="plot-card" style="grid-column:1/-1;">
       <div class="plot-title">
@@ -81,8 +115,6 @@
 <script type="module">
 const status = document.getElementById("status");
 function debounce(fn, ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};}
-let runScheduled = false;
-
 // Auto-run DP solve
 const scheduleSolve = debounce(() => {
   if (!window.pyodide) return;
@@ -91,27 +123,32 @@ const scheduleSolve = debounce(() => {
 }, 200);
 
 // Load Pyodide
-self.pyodideLogLevel = "error";  // verbose
-// options: "error", "warn", "info", "debug"
-import { gunzipSync } from "https://cdn.jsdelivr.net/npm/fflate/+esm";
+self.pyodideLogLevel = "error";  // options: "error", "warn", "info", "debug"
 import("https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs").then(async ({ loadPyodide }) => {
   window.pyodide = await loadPyodide({ stdout: console.log, stderr: console.error });
   await pyodide.loadPackage("numpy");
+  // Add a timestamp to the URL to prevent caching during development (cache busting)
+  // --- BEGIN EMBEDDED PAYLOAD (generated by make_standalone.py) ---
+  // Obfuscated Python UI/coordination code (zlib+base64)
+  const _pysrc = "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";
 
-  const b64code = `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`;
-  //  const dpCode = await (await fetch("utils.py")).text();
-  const dpCode = new TextDecoder().decode(
-      gunzipSync(Uint8Array.from(atob(b64code), c => c.charCodeAt(0)))
-  );
+  const dpCode = `import base64 as _b, zlib as _z; exec(_z.decompress(_b.b64decode("${_pysrc}")))`;
+  // --- END EMBEDDED PAYLOAD ---
 
-    console.log("✅ Gzipped + obfuscated Pyodide module loaded successfully.");
   const pythonCode = `
-# Attach JS proxies
+# Attach JS proxies for price chart
 for cid in ["plotPrices"]:
     c = document.getElementById(cid)
-    c.addEventListener("mousedown", create_proxy(on_mousedown))
-    c.addEventListener("mousemove", create_proxy(on_mousemove))
-    c.addEventListener("mouseup", create_proxy(on_mouseup))
+    c.addEventListener("mousedown", create_proxy(_racxm))
+    c.addEventListener("mousemove", create_proxy(_wzvua))
+    c.addEventListener("mouseup", create_proxy(_tpkhx))
+
+# Attach JS proxies for SOC gate interaction
+_soc = document.getElementById("plotSOC")
+_soc.addEventListener("mousedown", create_proxy(_hhzez))
+_soc.addEventListener("mousemove", create_proxy(_rocck))
+_soc.addEventListener("mouseup", create_proxy(_qpdjr))
+_soc.addEventListener("dblclick", create_proxy(_kwcgs))
   `
   await pyodide.runPythonAsync(dpCode + pythonCode);
 
@@ -120,15 +157,107 @@ for cid in ["plotPrices"]:
     document.getElementById("capLabel").textContent = e.target.value+" kWh";
     scheduleSolve();
   });
-  document.getElementById("pmax").addEventListener("input", e=>{
-    document.getElementById("pmaxLabel").textContent = e.target.value+" kW";
-    scheduleSolve();
-  });
   document.getElementById("minpct").addEventListener("input", scheduleSolve);
 
-  ["plotPrices"].forEach(cid=>{
+  // Charge/discharge power sliders with lock
+  let pmaxLocked = true;
+  const chargeSlider = document.getElementById("pmaxCharge");
+  const dischargeSlider = document.getElementById("pmaxDischarge");
+  const lockBtn = document.getElementById("pmaxLock");
+
+  chargeSlider.addEventListener("input", e=>{
+    document.getElementById("pmaxChargeLabel").textContent = e.target.value+" kW";
+    if (pmaxLocked) {
+      dischargeSlider.value = e.target.value;
+      document.getElementById("pmaxDischargeLabel").textContent = e.target.value+" kW";
+    }
+    scheduleSolve();
+  });
+  dischargeSlider.addEventListener("input", e=>{
+    document.getElementById("pmaxDischargeLabel").textContent = e.target.value+" kW";
+    if (pmaxLocked) {
+      chargeSlider.value = e.target.value;
+      document.getElementById("pmaxChargeLabel").textContent = e.target.value+" kW";
+    }
+    scheduleSolve();
+  });
+  lockBtn.addEventListener("click", ()=>{
+    pmaxLocked = !pmaxLocked;
+    lockBtn.textContent = pmaxLocked ? "Linked" : "Independent";
+    lockBtn.style.borderColor = pmaxLocked ? "rgba(255,255,255,0.2)" : "rgba(255,150,100,0.5)";
+  });
+
+  // CSV import
+  function parseCSVLine(line){
+    const fields=[]; let cur="",inQ=false;
+    for(const ch of line){
+      if(ch==='"'){inQ=!inQ;}
+      else if(ch===','&&!inQ){fields.push(cur.trim());cur="";}
+      else{cur+=ch;}
+    }
+    fields.push(cur.trim());
+    return fields;
+  }
+  function parseCSVValues(text){
+    const lines=text.trim().split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length<2) return text.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s&&!isNaN(s)).map(Number);
+    // Detect structured CSV with "Price" header
+    const hdr=lines[0];
+    if(/price/i.test(hdr)){
+      const headers=parseCSVLine(hdr);
+      const pi=headers.findIndex(h=>/price/i.test(h));
+      if(pi===-1) return text.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s&&!isNaN(s)).map(Number);
+      const isMWh=/mwh/i.test(headers[pi]);
+      const ti=headers.findIndex(h=>/time/i.test(h));
+      const di=headers.findIndex(h=>/date/i.test(h));
+      // Average prices by 15-min time slot across all days
+      const slotSums=new Float64Array(96), slotCounts=new Uint32Array(96);
+      const dates=new Set();
+      for(let i=1;i<lines.length;i++){
+        const f=parseCSVLine(lines[i]);
+        if(f.length<=pi) continue;
+        const v=parseFloat(f[pi]); if(isNaN(v)) continue;
+        if(di>=0&&f.length>di) dates.add(f[di]);
+        let slot=(i-1)%96;
+        if(ti>=0&&f.length>ti){const m=f[ti].match(/(\d{2}):(\d{2})/);if(m)slot=parseInt(m[1])*4+Math.floor(parseInt(m[2])/15);}
+        if(slot<0||slot>=96) continue;
+        slotSums[slot]+=(isMWh?v/1000:v); slotCounts[slot]++;
+      }
+      const prices=[];
+      for(let s=0;s<96;s++) prices.push(slotCounts[s]>0?slotSums[s]/slotCounts[s]:0);
+      // Fill empty slots by linear interpolation
+      for(let s=0;s<96;s++){if(slotCounts[s]>0)continue;let l=-1,r=-1;
+        for(let j=s-1;j>=0;j--)if(slotCounts[j]>0){l=j;break;}
+        for(let j=s+1;j<96;j++)if(slotCounts[j]>0){r=j;break;}
+        if(l>=0&&r>=0){const w=(s-l)/(r-l);prices[s]=prices[l]*(1-w)+prices[r]*w;}
+        else if(l>=0)prices[s]=prices[l];else if(r>=0)prices[s]=prices[r];
+      }
+      window._csvLoadedDate=dates.size>1?`avg of ${dates.size} days`:[...dates][0]||"_";
+      return prices;
+    }
+    return text.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s&&!isNaN(s)).map(Number);
+  }
+  async function loadPrices(target){
+    const text = document.getElementById("csvText").value;
+    const vals = parseCSVValues(text);
+    if(!vals.length){status.textContent="No valid numbers found";return;}
+    const hasMWh = /mwh/i.test(text.split(/\r?\n/)[0]||"");
+    await pyodide.runPythonAsync(`_oqibz(${JSON.stringify(vals)}, "${target}")`);
+    const dateInfo = window._csvLoadedDate && window._csvLoadedDate!=="_" ? ` [${window._csvLoadedDate}]` : "";
+    status.textContent=`Loaded ${vals.length} values as ${target} prices${dateInfo}` + (hasMWh ? " (converted Rs/MWh → Rs/kWh)" : "");
+    scheduleSolve();
+  }
+  document.getElementById("loadBuy").addEventListener("click",()=>loadPrices("buy"));
+  document.getElementById("loadSell").addEventListener("click",()=>loadPrices("sell"));
+  document.getElementById("csvFile").addEventListener("change",e=>{
+    const f=e.target.files[0]; if(!f)return;
+    f.text().then(t=>{document.getElementById("csvText").value=t;});
+  });
+
+  ["plotPrices","plotSOC"].forEach(cid=>{
     document.getElementById(cid).addEventListener("mouseup", scheduleSolve);
   })
+  document.getElementById("plotSOC").addEventListener("dblclick", scheduleSolve);
   // Rollout on SOC hover
   status.textContent = "Running initial solve…";
   await runDPSolve();
@@ -136,18 +265,20 @@ for cid in ["plotPrices"]:
   const socCanvas = document.getElementById("plotSOC");
   socCanvas.addEventListener("mousemove", debounce(async ev=>{
     if (!pyodide.globals.get("dp_ready")) return;
+    if (pyodide.globals.get("gate_drag")) return;
     const r = socCanvas.getBoundingClientRect();
     const x = (ev.clientX - r.left) / r.width;
     const y = (ev.clientY - r.top) / r.height;
     const cap = parseFloat(document.getElementById("capacity").value);
-    const pmax = parseFloat(document.getElementById("pmax").value);
-    const t0 = Math.floor(x * 96);
+    const pc = parseFloat(document.getElementById("pmaxCharge").value);
+    const pd = parseFloat(document.getElementById("pmaxDischarge").value);
+    const t0 = Math.floor(x * pyodide.globals.get("STEPS"));
     const s0 = (1-y)*cap;
 
     try {
       await pyodide.runPythonAsync(`
-xs_out, ys_soc, ys_pow = rollout(${t0}, ${s0}, ${cap}, ${pmax}, buy, sell, load)
-draw_hover_path(xs_out, ys_soc, ys_pow, ${cap}, ${pmax})
+xs_out, ys_soc, ys_pow = _zmksh(${t0}, ${s0}, ${cap}, ${pc}, ${pd}, buy, sell, load)
+_ejeyd(xs_out, ys_soc, ys_pow, ${cap}, ${pc}, ${pd})
 `);
       const dp_elapsed = pyodide.globals.get("dp_elapsed_time");
       const rollout_elapsed = pyodide.globals.get("rollout_elapsed_time");
@@ -158,19 +289,96 @@ draw_hover_path(xs_out, ys_soc, ys_pow, ${cap}, ${pmax})
 
 });
 
+// --- Particle Flow Animation (hint.fm/wind style) ---
+const NPART = 400;
+let flowParts = null, flowPol = null, flowOvl = null, flowCtx2 = null, flowAnim = null;
+
+function flowInit(){
+  flowOvl = document.getElementById("plotSOCOverlay");
+  const soc = document.getElementById("plotSOC");
+  flowOvl.width = soc.width; flowOvl.height = soc.height;
+  flowCtx2 = flowOvl.getContext('2d');
+}
+function flowSpawn(){ return {x:Math.random(), y:0.05+Math.random()*0.9, age:Math.floor(Math.random()*70), max:50+Math.floor(Math.random()*50)}; }
+function flowCache(){
+  const pol=pyodide.globals.get("POL").toJs(), sg=pyodide.globals.get("S_GRID").toJs();
+  const steps=pyodide.globals.get("STEPS"), sres=pyodide.globals.get("S_RES");
+  const cap=parseFloat(document.getElementById("capacity").value);
+  const flat=new Float64Array(steps*sres);
+  for(let t=0;t<steps;t++) for(let s=0;s<sres;s++) flat[t*sres+s]=pol[t][s];
+  flowPol={flat,steps,sres,smin:sg[0],smax:sg[sg.length-1],cap,hrs:steps*0.25};
+}
+function flowAction(x,y){
+  if(!flowPol)return 0;
+  const t=Math.min(flowPol.steps-1,Math.max(0,Math.floor(x*flowPol.steps)));
+  const si=y*(flowPol.sres-1), s0=Math.max(0,Math.min(flowPol.sres-2,Math.floor(si))), f=si-s0;
+  return flowPol.flat[t*flowPol.sres+s0]*(1-f)+flowPol.flat[t*flowPol.sres+s0+1]*f;
+}
+function flowFrame(){
+  if(!flowPol||!flowCtx2)return;
+  const dpr=window.devicePixelRatio||1, w=flowOvl.width, h=flowOvl.height;
+  const L=50*dpr, R=w-50*dpr, T=10*dpr, pH=h-50*dpr;
+  const{cap,smin,smax,hrs}=flowPol, sR=smax-smin, spd=0.003;
+  // Fade trails
+  flowCtx2.globalCompositeOperation='destination-in';
+  flowCtx2.fillStyle='rgba(0,0,0,0.93)';
+  flowCtx2.fillRect(0,0,w,h);
+  flowCtx2.globalCompositeOperation='source-over';
+  flowCtx2.lineWidth=1.5*dpr;
+  for(const p of flowParts){
+    const a=flowAction(p.x,p.y), eff=a>0?a*0.9:a/0.9;
+    const px=p.x, py=p.y;
+    p.x+=spd; p.y+=eff*spd*hrs/sR; p.age++;
+    // Pixel coords
+    const x0=L+px*(R-L), x1=L+p.x*(R-L);
+    const s0v=smin+py*sR, s1v=smin+p.y*sR;
+    const y0=(1-s0v/cap)*pH+T, y1=(1-s1v/cap)*pH+T;
+    const fade=Math.max(0,1-p.age/p.max);
+    if(a>0.05) flowCtx2.strokeStyle=`rgba(100,200,255,${(fade*0.85).toFixed(2)})`;
+    else if(a<-0.05) flowCtx2.strokeStyle=`rgba(255,130,130,${(fade*0.85).toFixed(2)})`;
+    else flowCtx2.strokeStyle=`rgba(200,200,200,${(fade*0.12).toFixed(2)})`;
+    flowCtx2.beginPath(); flowCtx2.moveTo(x0,y0); flowCtx2.lineTo(x1,y1); flowCtx2.stroke();
+    if(p.x>1||p.y<0||p.y>1||p.age>p.max) Object.assign(p,flowSpawn());
+  }
+  flowAnim=requestAnimationFrame(flowFrame);
+}
+function flowStop(){
+  if(flowAnim){cancelAnimationFrame(flowAnim);flowAnim=null;}
+  if(flowCtx2&&flowOvl) flowCtx2.clearRect(0,0,flowOvl.width,flowOvl.height);
+}
+function flowStart(){
+  if(!document.getElementById("flowToggle").checked){flowStop();return;}
+  if(!flowOvl) flowInit();
+  flowCache();
+  if(!flowParts){flowParts=[];for(let i=0;i<NPART;i++)flowParts.push(flowSpawn());}
+  if(flowAnim) cancelAnimationFrame(flowAnim);
+  flowFrame();
+}
+document.getElementById("flowToggle").addEventListener("change", ()=>{
+  if(document.getElementById("flowToggle").checked) flowStart();
+  else flowStop();
+});
+
 // JS wrapper for DP solve
 async function runDPSolve(){
   try {
     await pyodide.runPythonAsync(`
-buy, sell, load = expand_inputs(buy_ui=buy_ui, sell_ui=sell_ui, load_ui=load_ui)
-dp_elapsed_time = solve_dp(buy=buy, sell=sell, load=load,
+buy, sell, load = _xcvkp(buy_ui=buy_ui, sell_ui=sell_ui, load_ui=load_ui)
+dp_elapsed_time = _tvipc(buy=buy, sell=sell, load=load,
   cap=float(document.getElementById("capacity").value),
-  pmax=float(document.getElementById("pmax").value),
+  pmax_charge=float(document.getElementById("pmaxCharge").value),
+  pmax_discharge=float(document.getElementById("pmaxDischarge").value),
   minpct=float(document.getElementById("minpct").value)
 )
-draw_quiver(float(document.getElementById("capacity").value),
-            float(document.getElementById("pmax").value))
+_tzirw(float(document.getElementById("capacity").value),
+            float(document.getElementById("pmaxCharge").value),
+            float(document.getElementById("pmaxDischarge").value))
+_mynbi(float(document.getElementById("capacity").value),
+               float(document.getElementById("pmaxCharge").value),
+               float(document.getElementById("pmaxDischarge").value),
+               buy, sell, load)
 `);
+    flowStart();
     const dp_elapsed = pyodide.globals.get("dp_elapsed_time");
     status.textContent = `✅ Solve: ${dp_elapsed.toFixed(1)} ms`;
   } catch(e) {
