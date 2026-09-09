@@ -14,9 +14,10 @@
 
 Figure 1, §12 and §9 carry most of the argument, if you would rather not read it all. The equations and the policy code sit in the appendices, so the main text can be read without them.
 
-Disclaimer1: This note is a perosnal thought-exercise meant to improve the quality of interoperable EV charging networks, and highlighting the role of optimiziers. It may not represent the views of organizations I worked for.
+Disclaimers:
+1. This note is a perosnal thought-exercise meant to improve the quality of interoperable EV charging networks, and highlighting the role of optimiziers. It may not represent the views of organizations I worked for.
+2. After I wrote down the initial idea, the refinements of this note have been AI-assisted. There could be errors, kindly let us know and I shall fix them promptly.
 
-Disclaimer2: After I wrote down the initial idea, the refinements of this note have been AI-assisted. There could be errors, kindly let us know and I shall fix them promptly.
 ---
 
 ## Contents
