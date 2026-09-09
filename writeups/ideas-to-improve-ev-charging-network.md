@@ -195,8 +195,8 @@ gantt
     R charging (GOLD tier)     :crit,   r1, 18:12, 40m
     W3 charging                :active, w3, 18:52, 30m
     section Commitments
-    R reserved for 18:00       :milestone, m1, 18:00, 0m
-    R served 18:12 - SLA credit accrues :milestone, m2, 18:12, 0m
+    R reserved for 1800h        :milestone, m1, 18:00, 0m
+    R served 1812h - SLA credit accrues :milestone, m2, 18:12, 0m
 ```
 
 **Figure 4 — A reservation merging into the live queue, twelve minutes late. The delay isn't a failure of the design so much as a priced outcome.**
