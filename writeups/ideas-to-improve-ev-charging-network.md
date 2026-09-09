@@ -380,7 +380,7 @@ Admission constants govern which state you are in; settlement constants govern w
 The `ev-charging` devkit already models the full Beckn v2 flow — discover through rating, session start and completion over `update`/`on_update`, live telemetry over `on_status`. What it doesn't yet have is a policy-as-code hook, and there seem to be four gaps standing between it and one:
 
 1. **`sessionStatus` collapses cases that settle differently.** `ACTIVE`, `COMPLETED` and `INTERRUPTED` can't distinguish a customer pulling the gun, a charger faulting, and a DR derate — three events with quite different consequences for who pays whom. The state set in Figure 3 is offered as a replacement.
-2. **`chargingTelemetry` isn't settleable as it stands.** It carries point-in-time metrics with an `eventTime`, but no interval duration, state, or attribution — so there's no way to compute occupancy from it, or to say whose fault a shortfall was. Turning it into an interval series in the shape the demand-flex telemetry already uses, with `limiting_factor` as a payload type, would close that. *(Minor bug worth fixing in passing: in the `12_on_status` example, `POWER` carries `unitCode: KWH` and `ENERGY` carries `KW` — the two are swapped.)*
+2. **`chargingTelemetry` isn't settleable as it stands.** It carries point-in-time metrics with an `eventTime`, but no interval duration, state, or attribution — so there's no way to compute occupancy from it, or to say whose fault a shortfall was. Replacing it with a `BecknTimeSeries` — the primitive `DemandFlexPerformance` already carries meter telemetry in — would close that, with `STATE`, `ATTRIBUTION` and `LIMITING_FACTOR` as payload types alongside the power and energy rows. It is a schema swap rather than a new schema: the envelope, the descriptors and the validator are already published. *(Minor bug worth fixing in passing: in the `12_on_status` example, `POWER` carries `unitCode: KWH` and `ENERGY` carries `KW` — the two are swapped.)*
 3. **`orderValue.components[]` is hand-authored.** Today's examples carry line items like a twenty-percent surge and an "overcharge estimation" as literal values with prose descriptions. That looks like exactly the array a contract policy could compute and inject, much as `demand-flex-contractpolicy.rego` produces `settlement_components`.
 4. **There is no `contractAttributes.policy` reference.** Without one there is nothing for `contractpolicyenforcer` to fetch, checksum or enforce, and little to stop an operator settling on terms other than the contracted ones.
 
@@ -456,7 +456,7 @@ A settlement is emitted only if all seven hold. If any of them fails, nothing se
 1. **Time conservation.** Every second between notification and departure sits in exactly one state.
 2. **Energy reconciliation.** The intervals sum to the meter register delta, within tolerance.
 3. **Attribution exclusivity.** Every interval names exactly one responsible party from a closed set.
-4. **Single assignment.** Every energy-bearing interval carries the session's own stall. A stall change needs a new contract.
+4. **Single assignment.** One ledger names one stall, in the series' `resourceName`. A stall change needs a new series and a new contract.
 5. **Liability bound.** Neither the operator penalty nor the net amount can exceed the tier's cap.
 6. **Version pinning.** The policy version on the ledger matches the one recorded on the contract.
 7. **Fee exclusivity.** Idle and congestion are never both charged.
@@ -558,7 +558,7 @@ Deliberately excluded: bidirectional flow and V2G settlement (the equation assum
 Running a charging network well seems to take a whole-system view, and interoperability probably only pays off if the interfaces are simplified, standardised and actually enforced. Concretely, and all of it inside machinery DEG already has:
 
 1. **The eight stall telemetry fields** in §10, including a forecast with an uncertainty band.
-2. **`LIMITING_FACTOR`** on every session interval — the field that makes penalties arbitrable.
+2. **`LIMITING_FACTOR`** as a `BecknTimeSeries` payload type on every session interval — the field that makes penalties arbitrable.
 3. **The session state machine** in Figure 3, as a closed enum with exclusive attribution, replacing today's three-valued `sessionStatus`.
 4. **One contract policy per fulfillment mode**, published as a checksummed rego and selected by the payload — so a new tier is a new file, not a new network.
 5. **The settlement rules and their seven invariants**, split network/contract as DEG already defines, and evaluated bilaterally rather than by either counterparty alone.
@@ -574,14 +574,15 @@ Not a full payload — the shape of the extension, enough to build the rest from
 
 ### A.1 The session ledger
 
-`ChargingSession` gains an interval series in place of today's flat `chargingTelemetry`. One interval per state change, contiguous, sequenced from zero — the same series discipline the demand-flex telemetry follows.
+`ChargingSession` gains a **`BecknTimeSeries`** in place of today's flat `chargingTelemetry` — the OpenADR 3.1.0-aligned envelope DEG already publishes at `schema.nfh.global/BecknTimeSeries/v1.0`, and that `DemandFlexPerformance` already uses for meter telemetry. One interval per state change, contiguous, sequenced from zero. Reusing the primitive rather than inventing a shape is what makes the demand-flex reuse in §9 and §14 literal rather than analogical: same envelope, same accessors, same per-interval arithmetic.
+
+Everything the ledger needs travels as typed rows. OpenADR's `values` accepts strings as well as numbers, so `STATE`, `ATTRIBUTION` and `LIMITING_FACTOR` are payload types like any other rather than bespoke keys; the stall is the series' `resourceName` (OpenADR `Report.resources[].resourceName`) and the CPO its `clientName`; and intervals of unequal length carry their own `intervalPeriod`, overriding the series default.
 
 ```json
 "beckn:deliveryAttributes": {
   "@context": "https://schema.nfh.global/EvChargingSession/v2.0/context.jsonld",
   "@type": "ChargingSession",
   "sessionState": "DEPARTED",
-  "stallId": "IND*ecopower-charging*cs-01*IN*ECO*BTM*01*CCS2*A*CCS2-A",
   "meterStartKWh": 148230.0,
   "meterStopKWh": 148261.0,
   "promisedPowerKW": 60.0,
@@ -589,28 +590,35 @@ Not a full payload — the shape of the extension, enough to build the rest from
   "notifiedAt": "2025-01-27T18:12:00Z",
   "departedAt": "2025-01-27T19:04:00Z",
   "sessionLedger": {
+    "@type": "TimeSeries",
+    "resourceName": "IND*ecopower-charging*cs-01*IN*ECO*BTM*01*CCS2*A*CCS2-A",
+    "clientName": "ecopower-charging.bpp.example.com",
+    "intervalPeriod": { "start": "2025-01-27T18:12:00Z", "duration": "PT52M" },
     "payloadDescriptors": [
-      {"payloadType": "POWER_REQUESTED", "unitCode": "KW"},
-      {"payloadType": "POWER_DELIVERED", "unitCode": "KW"},
-      {"payloadType": "ENERGY",          "unitCode": "KWH"},
-      {"payloadType": "STATE_OF_CHARGE", "unitCode": "PERCENTAGE"},
-      {"payloadType": "LIMITING_FACTOR", "unitCode": "TEXT"}
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "STATE",           "units": "STRING",  "cardinality": "PER_INTERVAL"},
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "ATTRIBUTION",     "units": "STRING",  "cardinality": "PER_INTERVAL"},
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "POWER_REQUESTED", "units": "KW",      "readingType": "DIRECT_READ"},
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "POWER_DELIVERED", "units": "KW",      "readingType": "DIRECT_READ"},
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "ENERGY",          "units": "KWH",     "readingType": "DIRECT_READ"},
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "SOC_START",       "units": "PERCENT"},
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "SOC_END",         "units": "PERCENT"},
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "LIMITING_FACTOR", "units": "STRING"},
+      {"objectType": "REPORT_PAYLOAD_DESCRIPTOR", "payloadType": "DR_EVENT_ID",     "units": "STRING",  "cardinality": "PER_EVENT"}
     ],
     "intervals": [
       {
         "id": 2,
-        "state": "DERATED_DR",
-        "attribution": "DR",
-        "start": "2025-01-27T18:25:00Z",
-        "duration": "PT10M",
-        "stallId": "IND*ecopower-charging*cs-01*IN*ECO*BTM*01*CCS2*A*CCS2-A",
-        "drEventId": "BESCOM-DR-2026-09-08-1825",
+        "intervalPeriod": { "start": "2025-01-27T18:25:00Z", "duration": "PT10M" },
         "payloads": [
+          {"type": "STATE",           "values": ["DERATED_DR"]},
+          {"type": "ATTRIBUTION",     "values": ["DR"]},
           {"type": "POWER_REQUESTED", "values": [60.0]},
           {"type": "POWER_DELIVERED", "values": [30.0]},
           {"type": "ENERGY",          "values": [5.0]},
-          {"type": "STATE_OF_CHARGE", "values": [39, 47]},
-          {"type": "LIMITING_FACTOR", "values": ["DR_EVENT"]}
+          {"type": "SOC_START",       "values": [39]},
+          {"type": "SOC_END",         "values": [47]},
+          {"type": "LIMITING_FACTOR", "values": ["DR_EVENT"]},
+          {"type": "DR_EVENT_ID",     "values": ["BESCOM-DR-2026-09-08-1825"]}
         ]
       }
     ]
@@ -618,7 +626,13 @@ Not a full payload — the shape of the extension, enough to build the rest from
 }
 ```
 
-Three closed enumerations carry the whole design, and the network policy checks membership on every message:
+`"https://schema.nfh.global/BecknTimeSeries/v1.0/context.jsonld"` joins the envelope's `context.schemaContext[]`, exactly as the demand-flex payloads carry it.
+
+**What the primitive checks, and what it deliberately leaves to you.** `BecknTimeSeries` validates the shape — required `intervalPeriod`, `payloadDescriptors` and `intervals`, well-formed ISO datetimes and durations, value elements that are numbers, strings, booleans or points. It leaves `payloadType` an open string and says interval ids need not be sequential, on the explicit expectation that consumer profiles close both. That is not a loss of rigour so much as a relocation of it: the closed enumerations below, sequential-contiguous ids, type-coverage (every `payloads[*].type` declared in `payloadDescriptors`), time conservation and energy reconciliation all become profile-level `if/then/else` plus `ev-charging-networkpolicy.rego` — which is where §12.2 already puts them, and where demand-flex already runs its own type-coverage rule.
+
+One invariant improves in the move. Single assignment used to be a per-interval check that every energy-bearing row named the session's stall; with the stall as the series' `resourceName` it is structural — a stall change means a new series, and therefore a new contract.
+
+Three closed enumerations carry the whole design. `payloadType` is open at the primitive layer, so these are closed in the EV-charging profile and the network policy checks membership on every message:
 
 | Field | Values |
 |---|---|
@@ -767,7 +781,7 @@ A settlement is emitted only if all seven hold. I1–I4 are structural and belon
 - **I1 — Time conservation.** `Σ duration_s = t_departed − t_notified`, within tolerance. Every second in exactly one state.
 - **I2 — Energy reconciliation.** `Σ e_k = meter_stop − meter_start`, within meter tolerance.
 - **I3 — Attribution exclusivity.** Every interval has exactly one attribution from the closed enum.
-- **I4 — Single assignment.** Every energy-bearing interval carries the session's stall; a stall change requires a new contract.
+- **I4 — Single assignment.** The ledger's `resourceName` names exactly one stall for the whole series; a stall change requires a new series and a new contract.
 - **I5 — Liability bound.** `K_SLA ≤ K_max` and `A_payable ≥ −K_max`.
 - **I6 — Version pinning.** `policy_version` on the ledger equals `policy_version` on the contract.
 - **I7 — Fee exclusivity.** `C_I · C_G = 0`. A stall charges for idling or for congestion, never both for the same minute.
@@ -804,22 +818,29 @@ One note on `ev-charging-ledger.rego`: the existing DEG policies are each self-c
 # Each rule self-skips when its data is not on the wire, so one rule set
 # spans discover → on_status without false positives.
 #
-#   1  interval id sequence (0,1,2,…) and contiguity
+# The ledger is a BecknTimeSeries, so these are the profile checks the
+# primitive deliberately leaves open — same job demand-flex's network
+# rego does for its own telemetry.
+#
+#   1  interval id sequence (0,1,2,…) and contiguity of intervalPeriod
 #   2  payload type-coverage: every type used is declared in payloadDescriptors
-#   3  closed enums: state, attribution, LIMITING_FACTOR
+#   3  closed enums: STATE, ATTRIBUTION, LIMITING_FACTOR payload values
 #   4  time conservation: Σ duration == departedAt − notifiedAt
 #   5  energy reconciliation: Σ ENERGY == meterStop − meterStart
-#   6  single assignment: every energy-bearing interval carries the session stall
+#   6  single assignment: resourceName names one stall for the whole series
 #   7  state transition legality against the session state machine
 
 package deg.policy.ev_charging_network
 
 import rego.v1
 
+# STATE is a valuesMap row, not a sibling key — `_payload` reads a
+# payload type off an interval, as the demand-flex regos do.
 violations contains msg if {
 	some iv in _ledger.intervals
-	not iv.state in _states
-	msg := sprintf("interval %d: unknown state %v", [iv.id, iv.state])
+	st := _payload(iv, "STATE")
+	not st in _states
+	msg := sprintf("interval %d: unknown state %v", [iv.id, st])
 }
 
 violations contains msg if {
@@ -846,7 +867,7 @@ networkPolicies:
     query: data.discom.policy.ev_charging_network.violations
 ```
 
-One entry per `networkId`, resolved per message. Both regos see the same ledger, so it must be well-formed under both — which is the argument for publishing the state, attribution and `LIMITING_FACTOR` enumerations once and having every network policy reference them rather than restate them.
+One entry per `networkId`, resolved per message. Both regos see the same ledger, so it must be well-formed under both — which is the argument for publishing the `STATE`, `ATTRIBUTION` and `LIMITING_FACTOR` vocabularies once, as an EV-charging payload-type profile over `BecknTimeSeries` (the way `BecknReportDescriptors` publishes the demand-flex vendor-telemetry vocabulary), and having every network policy reference that profile rather than restate it.
 
 ### C.3 Contract policy — settlement only
 
