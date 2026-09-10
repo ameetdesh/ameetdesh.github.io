@@ -1,5 +1,5 @@
 title: Ameet S. Deshpande
-description: Algorithms for energy systems — optimization, control, and market design.
+description: Optimization, control algorithms and the protocols for energy networks.
 url: https://ameetdesh.github.io
 author: Ameet S. Deshpande
 email: ameet.deshpande@gmail.com
@@ -8,6 +8,7 @@ email: ameet.deshpande@gmail.com
 github_username: ameetdesh
 linkedin_username: ameetdesh
 resume_url: /resume_ameet_deshpande.pdf
+blog_url: https://ameetdesh.blogspot.com
 scholar_url: https://scholar.google.com/citations?user=
 
 markdown: kramdown

@@ -5,32 +5,30 @@ layout: default
 # Ameet S. Deshpande
 {: .page-title }
 
-<p class="subtitle">Optimization, control algorithms, and the language for expressing energy transactions.</p>
+<p class="subtitle">Optimization, control algorithms and the protocols for energy networks.</p>
 
 I build optimization and control algorithms for physical energy systems —
 virtual power plants, home batteries, wind turbines, EV charging networks, and
-electric propulsion. I also develop the language these systems use to express
-energy transactions: the schemas, contracts and settlement rules that let
-independent parties trade energy and flexibility and agree on what was owed.
-Twenty-four years of it, mostly taking ideas from first principles through to
-production.
+electric propulsion — and the protocols those systems trade over: the schemas,
+contracts and settlement rules that let independent parties exchange energy and
+flexibility and agree on what was owed. Mostly taking ideas from first
+principles through to production.
 
-Most recently I architected the shared schemas, devkits and runtime services
-behind several first-of-their-kind energy networks on the [Beckn
-protocol](https://becknprotocol.io) — peer-to-peer energy trading, EV charging,
-and utility-led flexibility — including the trade ledger for India's first
-interstate P2P energy network. Before that I spent three years at Tesla Energy
-on the Autobidder team, where I was one of two engineers building the trading
-algorithms behind the Texas virtual power plant that bids solar and storage from
-thousands of homes into day-ahead and real-time markets. Earlier, at GE
-Renewable Energy and GE Global Research, I worked on extreme-event controls,
+Most recently I designed the language primitives by which machines can express
+and agentically trade energy services, across several first-of-their-kind
+networks on the [Beckn protocol](https://becknprotocol.io) — peer-to-peer energy
+trading, EV charging, and utility-led flexibility — including the trade ledger
+for India's first interstate P2P energy network. Before that, at Tesla Energy on
+the Autobidder team, I was one of two engineers who built the trading algorithms
+behind the Texas virtual power plant that bids solar and storage from thousands
+of homes into day-ahead and real-time markets. Earlier, at GE Renewable Energy
+and GE Global Research, I worked on extreme-event controls,
 blade-twist recovery, load estimation and pitch-bearing prognostics for the
 global wind fleet.
 
 I hold a Ph.D. in Mechanical and Aerospace Engineering from UC San Diego, where
 I worked on curse-of-dimensionality-free methods for solving the
-Hamilton–Jacobi–Bellman PDE, and a B.Tech. from IIT Bombay. Thirteen patents,
-nine currently active.
+Hamilton–Jacobi–Bellman PDE, and a B.Tech. from IIT Bombay. Thirteen patents.
 
 Based in Folsom, California.
 
@@ -39,6 +37,7 @@ Based in Folsom, California.
 <ul class="links">
   <li><span class="label">Resume</span> <a href="/resume_ameet_deshpande.pdf">PDF</a></li>
   <li><span class="label">GitHub</span> <a href="https://github.com/ameetdesh">@ameetdesh</a></li>
+  <li><span class="label">Blog</span> <a href="https://ameetdesh.blogspot.com">ameetdesh.blogspot.com</a></li>
   <li><span class="label">LinkedIn</span> <a href="https://www.linkedin.com/in/ameetdesh">/in/ameetdesh</a></li>
   <li><span class="label">Email</span> <a href="mailto:ameet.deshpande@gmail.com">ameet.deshpande@gmail.com</a></li>
 </ul>
