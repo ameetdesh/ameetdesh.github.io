@@ -5,12 +5,15 @@ layout: default
 # Ameet S. Deshpande
 {: .page-title }
 
-<p class="subtitle">Algorithms that control and optimize the economics of energy systems.</p>
+<p class="subtitle">Optimization, control algorithms, and the language for expressing energy transactions.</p>
 
-I build optimization, control and market-design algorithms for physical energy
-systems — virtual power plants, home batteries, wind turbines, EV charging
-networks, and electric propulsion. Twenty-four years of it, mostly taking ideas
-from first principles through to production.
+I build optimization and control algorithms for physical energy systems —
+virtual power plants, home batteries, wind turbines, EV charging networks, and
+electric propulsion. I also develop the language these systems use to express
+energy transactions: the schemas, contracts and settlement rules that let
+independent parties trade energy and flexibility and agree on what was owed.
+Twenty-four years of it, mostly taking ideas from first principles through to
+production.
 
 Most recently I architected the shared schemas, devkits and runtime services
 behind several first-of-their-kind energy networks on the [Beckn

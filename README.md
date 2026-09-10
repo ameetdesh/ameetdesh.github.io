@@ -2,7 +2,8 @@
 
 Personal site. Plain [Jekyll](https://jekyllrb.com), built automatically by
 GitHub Pages on every push to `main`. Every page is a Markdown file — there is
-no build step to run locally and no dependencies to keep current.
+no build step to run locally and no dependencies to keep current. The design is
+dark; printing forces a light palette so PDFs come out readable.
 
 ## Layout
 
@@ -40,6 +41,24 @@ math: true          # only if the note contains LaTeX
 
 Then write Markdown below it. It appears on `/writeups/` automatically, newest
 first. Do not repeat the title as an `# H1` in the body — the layout renders it.
+
+**Add a PDF, tool or anything that is not Markdown** — list it under `extras:`
+in the front matter of `writeups/index.md`:
+
+```yaml
+extras:
+  - title: Battery Optimizer
+    subtitle: One line describing it
+    url: /pyodide_optimizer_standalone.html
+    date: August 2026
+    tag: Interactive        # small chip next to the title; PDF, Interactive, Talk…
+```
+
+Markdown notes are listed first, then these, in the order you write them.
+
+**Change the colours** — everything lives in the `:root` block at the top of
+`assets/css/style.css`. Keep body text and metadata above a 4.5:1 contrast ratio
+against `--bg`.
 
 **Math** — set `math: true` in the front matter and use `$$ ... $$` for display
 equations, `$ ... $` for inline. MathJax loads only on pages that ask for it.

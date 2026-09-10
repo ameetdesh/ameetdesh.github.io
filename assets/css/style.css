@@ -5,43 +5,24 @@
 
 :root {
   --measure: 46rem;          /* text column width */
-  --ink: #1a1a1a;
-  --ink-soft: #5b5b5b;
-  --ink-faint: #8a8a8a;
-  --bg: #fefefe;
-  --bg-soft: #f4f4f2;
-  --rule: #e2e2de;
-  --link: #14507a;
-  --link-hover: #a4361a;
+  --ink: #e6e3dd;            /* body text */
+  --ink-soft: #a8a49c;       /* secondary text */
+  --ink-faint: #8a867d;      /* metadata */
+  --bg: #15161a;             /* page */
+  --bg-soft: #1e2025;        /* code, rails */
+  --rule: #2f3138;           /* hairlines */
+  --link: #86b6da;
+  --link-hover: #e5926f;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, serif;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   /* syntax highlighting */
-  --sx-comment: #7d8a7d;
-  --sx-string: #4a6b2f;
-  --sx-number: #8a5a24;
-  --sx-key: #2c5d8a;
-  --sx-keyword: #7a3a86;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #e4e2dd;
-    --ink-soft: #a9a6a0;
-    --ink-faint: #7d7a74;
-    --bg: #16171a;
-    --bg-soft: #1f2125;
-    --rule: #32343a;
-    --link: #7fb2d8;
-    --link-hover: #e08a6a;
-    --sx-comment: #71786f;
-    --sx-string: #a3c17a;
-    --sx-number: #d9a15f;
-    --sx-key: #7fb2d8;
-    --sx-keyword: #c79ad4;
-    color-scheme: dark;
-  }
+  --sx-comment: #868e84;
+  --sx-string: #a6c47e;
+  --sx-number: #dda766;
+  --sx-key: #86b6da;
+  --sx-keyword: #c9a0d6;
+  color-scheme: dark;
 }
 
 html { -webkit-text-size-adjust: 100%; }
@@ -242,6 +223,21 @@ img { max-width: 100%; height: auto; }
 .entry .summary { margin: 0.3rem 0 0; color: var(--ink-soft); font-size: 0.95rem; }
 .entry .meta { margin: 0.3rem 0 0; }
 
+.tag {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.08rem 0.42rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  vertical-align: 0.12em;
+}
+
 /* --- footer ------------------------------------------------------- */
 
 .site-foot {
@@ -277,6 +273,16 @@ mjx-container[display="true"] {
 /* --- print -------------------------------------------------------- */
 
 @media print {
+  /* The screen design is dark; paper is not. */
+  :root {
+    --ink: #000; --ink-soft: #333; --ink-faint: #555;
+    --bg: #fff; --bg-soft: #f4f4f2; --rule: #ccc;
+    --link: #000; --link-hover: #000;
+    --sx-comment: #666; --sx-string: #333; --sx-number: #333;
+    --sx-key: #333; --sx-keyword: #333;
+    color-scheme: light;
+  }
   .site-head nav, .site-foot { display: none; }
-  body { max-width: none; font-size: 11pt; color: #000; }
+  body { max-width: none; font-size: 11pt; }
+  pre { border-color: #ccc; }
 }
