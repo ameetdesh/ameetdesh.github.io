@@ -1,4 +1,29 @@
-theme: jekyll-theme-minimal
-title: Octocat's homepage
-description: Bookmark this to keep an eye on my project updates!
+title: Ameet S. Deshpande
+description: Algorithms for energy systems — optimization, control, and market design.
+url: https://ameetdesh.github.io
+author: Ameet S. Deshpande
+email: ameet.deshpande@gmail.com
+
+# Links shown in the header/footer. Edit freely.
+github_username: ameetdesh
+linkedin_username: ameetdesh
+resume_url: /resume_ameet_deshpande.pdf
+scholar_url: https://scholar.google.com/citations?user=
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  math_engine: mathjax
+  auto_ids: true
+
 include: [".well-known"]
+exclude:
+  - README.md
+  - vendor
+  - Gemfile
+  - Gemfile.lock
+
+plugins:
+  - jekyll-sitemap
+  - jekyll-feed

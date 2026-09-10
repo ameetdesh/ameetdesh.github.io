@@ -1,10 +1,15 @@
-# The Charger-Minute Problem
-
-### A settlement-first architecture for interoperable EV charging
-
+---
+layout: default
+title: "The Charger-Minute Problem"
+subtitle: "A settlement-first architecture for interoperable EV charging"
+date: 2026-09-09
+permalink: /writeups/ideas-to-improve-ev-charging-network/
+math: true
+description: "A settlement-first architecture for interoperable EV charging"
 ---
 
 ## Summary
+{: #summary }
 
 1. A charging network is largely selling one thing: **charger-minutes at a stall**. Three parties compete for them — the walk-in, the reservation holder, and the grid, which bids for the kilowatts flowing through those minutes rather than for the minutes themselves.
 2. A great many complaints about EV charging look like symptoms of allocating those minutes badly: crowding, queue-jumping, phantom availability, missed reservations, and demand-charge surprises.
@@ -21,6 +26,7 @@ Disclaimers:
 ---
 
 ## Contents
+{: #contents }
 
 **The problem**
 
@@ -65,6 +71,7 @@ Disclaimers:
 ---
 
 ## 1. A charger is not quite like a pump
+{: #1-a-charger-is-not-quite-like-a-pump }
 
 A petrol pump is held for few minutes. A DC fast charger, on the other hand, is held for twenty to fifty minutes, and it is hard to know when will the charging finish. Duration depends on battery chemistry, connector type, starting and target state of charge, whether the pack was pre-warmed, whether the site has hit its sanctioned peak demand, and whether a demand response event is running.
 
@@ -73,6 +80,7 @@ A good deal of what makes EV charging awkward seems to follow from that one asym
 Interoperability is a honking good idea: it cuts coordination costs, widens market access, and dissolves artificial monopolies. It also makes the coordination problem of delivering value under uncertainty strictly harder, because now the queue is shared across operators who don't trust each other and aggregators who compete for the same customers.
 
 ## 2. The idea this note is built on
+{: #2-the-idea-this-note-is-built-on }
 
 *A charging network has one scarce resource, and three parties want it. It would help if the tradeoffs were managed by the same optimization engine.*
 
@@ -98,6 +106,7 @@ flowchart LR
 **Figure 1 — Three claims on the same inventory, priced off a single number.**
 
 ## 3. Where this is being built
+{: #3-where-this-is-being-built }
 
 Unified Bharat eCharge (UBC) — the National Unified Hub for EV Charging — was launched under the Ministry of Heavy Industries, with NPCI running the network.[1] It is built as digital public infrastructure on the open Beckn protocol, with the underlying DPI developed by the Network for Humanity team.[2] Initial consumer access is through the BHIM app, with more to follow: locate a UBC-enabled charge point, reserve or drive to it, scan its QR code, pay and start charging [1][2].
 
@@ -115,6 +124,7 @@ This technical note proposes a general conceptual framework to address above iss
 
 
 ## 4. Architecture at a glance
+{: #4-architecture-at-a-glance }
 
 ```mermaid
 flowchart TB
@@ -136,6 +146,7 @@ flowchart TB
 The design principle throughout is that customer experience is treated as the primitive, with policy-as-code as the enforcement mechanism. Every number below that reads like a magic constant — grace period, demotion limit, cancellation window, idle fee — is meant to be a versioned policy parameter rather than something hard-coded.
 
 ## 5. The session state machine
+{: #5-the-session-state-machine }
 
 Most of what the network promises, and most of the ways it can disappoint, show up as edges on this diagram.
 
@@ -176,6 +187,7 @@ Two invariants make this safe:
 - **Exclusive attribution.** Every interval carries exactly one attribution: `CUSTOMER`, `CPO`, `DR`, or `NONE`. This is what makes settlement arbitrable rather than negotiable.
 
 ## 6. Contract A — the walk-in
+{: #6-contract-a--the-walk-in }
 
 Walk-in customers arrive with little or no lead time and expect to be served as soon as possible. The flow starts either online or by scanning a QR code at the station. They wait in a virtual queue and may leave at any time without penalty.
 
@@ -188,6 +200,7 @@ When their turn approaches they are notified of **the specific stall** and the p
 Virtual queuing seems to be what holds this together. Without it, drivers crowd the stalls physically, rights to a charger get ambiguous, and the occasional customer tailgates whoever is charging to jump the line.
 
 ## 7. Contract B — the reservation
+{: #7-contract-b--the-reservation }
 
 A reservation is booked at least `H_min` hours ahead. It isn't a guarantee of availability so much as a higher tier of service contract, carrying penalties for the operator if it goes unfulfilled. Customers pay a premium; the premium is forfeited on late cancellation and refunded plus penalty on CPO failure. Multiple tiers, each with a higher premium and a higher penalty, are natural.
 
@@ -215,6 +228,7 @@ gantt
 For this to work the optimiser needs distributions, not point estimates: charge duration, arrival delay, departure delay, queue depth by time of day, maintenance outages, DR event probability. §10 specifies what must be published to make those forecasts possible.
 
 ## 8. Failure modes and the mechanism that prevents each
+{: #8-failure-modes-and-the-mechanism-that-prevents-each }
 
 | # | Failure mode | Who is exposed | Preventing mechanism | Policy knob |
 |---|---|---|---|---|
@@ -237,6 +251,7 @@ For this to work the optimiser needs distributions, not point estimates: charge 
 Rows 4, 6, 7, 9, 11, 12 and 13 are all settled numerically — see §14 for the rules and Appendix B for the arithmetic. That seems to be the crux of it: a failure mode with no price attached tends to stay a complaint rather than becoming a contract.
 
 ## 9. Interoperability without commoditisation
+{: #9-interoperability-without-commoditisation }
 
 This is probably the objection that decides whether operators join at all: *if you dissolve every moat, where does my differential profit come from, and why would a customer stay loyal to me?*
 
@@ -250,6 +265,7 @@ My reading is that interoperability commoditises discovery and contracting, and 
 Standardising the rails needn't standardise the ride. What it does take away is the ability to profit from withholding information, and that was arguably closer to a tax than a moat.
 
 ## 10. What must cross the boundary
+{: #10-what-must-cross-the-boundary }
 
 This is the most concrete standardisation ask in the note. A scheduler can't forecast what the network doesn't publish, and an operator that publishes nothing is difficult to underwrite inside a shared queue. A reasonable minimum, per stall:
 
@@ -272,6 +288,7 @@ Per-interval session telemetry probably needs three more, which exist mainly to 
 - `limiting_factor` ∈ `{EVSE, BMS, SITE_DEMAND, DR_EVENT, GRID_FAULT}` — the field the penalty regime depends on most. Without it there is no way to tell a charger that underperformed from a battery that tapered, and every power-shortfall claim turns into a negotiation.
 
 ## 11. Gaming, and why interoperability creates it
+{: #11-gaming-and-why-interoperability-creates-it }
 
 A closed network has little incentive to attack itself; an open one is a different matter. Aggregators compete for the same customers over the same inventory, so there is some reason for them to:
 
@@ -286,10 +303,12 @@ Three possible defences, all of which can be expressed as policy:
 3. **Every queue claim is bound to a vehicle identity**, and a vehicle holds at most one live claim across the whole network.
 
 ## 12. Policy as code, in DEG terms
+{: #12-policy-as-code-in-deg-terms }
 
 Rules of this kind don't do much if each operator reimplements them in application code, so they are better off as executable artefacts the network evaluates. DEG already provides the machinery — two ONIX pipeline plugins with different scopes — and everything in this note fits inside it without needing a new mechanism.
 
 ### 12.1 The two layers DEG already defines
+{: #121-the-two-layers-deg-already-defines }
 
 | | **Network policy** (`opapolicychecker`) | **Contract policy** (`contractpolicyenforcer`) |
 |---|---|---|
@@ -304,6 +323,7 @@ DEG's own rule of thumb draws the line, and it happens to partition this note fa
 The asymmetry in how the two are selected matters later on: the contract policy travels in the payload and is therefore network-independent, while the network policy is bound to a `networkId` — and a single node may sit on several networks at once (§12.5).
 
 ### 12.2 One network policy, three contract policies
+{: #122-one-network-policy-three-contract-policies }
 
 The structural rules — every second of a session accounted for, intervals sequenced, energy reconciling against the meter, states and attributions drawn from closed enumerations, one stall per session — apply to every message. They would sit naturally in a single `ev-charging-networkpolicy.rego` alongside `demand-flex-networkpolicy.rego`: gate-only, and self-skipping per action so one rule set can span discover through on_status without false positives.
 
@@ -333,6 +353,7 @@ Two consequences follow. The second one I missed in earlier drafts.
 **The operator can fail to deliver.** Commit 100 kW of curtailment, deliver 60, and the demand-flex policy assesses a shortfall penalty on the difference. That is the discipline keeping DR bids honest, and it is also the other half of the reason a scheduler benefits from seeing the queue: committing capacity it can't free without breaching a reservation is a way to lose money in two contracts at once.
 
 ### 12.3 The mode already selects the policy
+{: #123-the-mode-already-selects-the-policy }
 
 This part seems to need no new machinery. A DEG contract policy reference travels in the payload, and the EV charging order already carries `beckn:fulfillment.beckn:mode` with `RESERVATION` among its values — so the mode can select which contract policy the order points at:
 
@@ -350,6 +371,7 @@ A walk-in order would point at the walk-in policy, a reservation order at the re
 Each policy is checksum-verified against its registry record, which makes it hard for an operator to settle quietly against terms other than the ones the customer contracted under. That is the enforcement half of the version-pinning rule below.
 
 ### 12.4 Where the modules touch the operator's scheduler
+{: #124-where-the-modules-touch-the-operators-scheduler }
 
 Exactly one quantity crosses the boundary: **the price of a charger-minute**, however the operator chooses to compute it (§13).
 
@@ -360,6 +382,7 @@ Exactly one quantity crosses the boundary: **the price of a charger-minute**, ho
 One number, three consumers — and it is the only thing the policies need from the scheduler. The machine readable reward policy tied to queuing, demand response, reservation action, is enough to simulate counterfactual money-flows and optimizer the whole system.
 
 ### 12.5 Who runs what, and on which network
+{: #125-who-runs-what-and-on-which-network }
 
 The policy engine runs at the **network layer**, on every module in both directions. Both the CPO and the aggregator are counterparties to the settlement, so neither can be its arbiter; DEG's bilateral evaluation means a non-empty `violations` on *either* side NACKs the message, which is what makes the arrangement safe between parties who do not trust each other.
 
@@ -374,10 +397,12 @@ Three things follow that are easy to get wrong:
 The scheduler is the opposite: it runs per site, inside the CPO, and is not standardised at all (§13). Standardising the policies it must respect is what makes the network work; standardising the scheduler itself would be the commoditisation operators are right to fear (§9).
 
 ### 12.6 Policy versions are pinned at contract time
+{: #126-policy-versions-are-pinned-at-contract-time }
 
 Policy changes over time, but sessions shouldn't be re-priced by it. So a contract records the policy version in force when it was created, and settlement evaluates against that version thereafter — making settlement a pure function of ledger, policy version and tier. Since the DEG registry record carries a checksum and a release tag, this can be enforced rather than merely intended, which should head off a fair number of disputes.
 
 ### 12.7 Two families of constant
+{: #127-two-families-of-constant }
 
 | Family | Constants | Used by |
 |---|---|---|
@@ -387,6 +412,7 @@ Policy changes over time, but sessions shouldn't be re-priced by it. So a contra
 Admission constants govern which state you are in; settlement constants govern what that state costs. Keeping them apart lets an operator tune operations without reopening priced contracts.
 
 ### 12.8 What this changes in the existing devkit
+{: #128-what-this-changes-in-the-existing-devkit }
 
 The `ev-charging` devkit already models the full Beckn v2 flow — discover through rating, session start and completion over `update`/`on_update`, live telemetry over `on_status`. What it doesn't yet have is a policy-as-code hook, and there seem to be four gaps standing between it and one:
 
@@ -398,6 +424,7 @@ The `ev-charging` devkit already models the full Beckn v2 flow — discover thro
 None of these appear to require protocol changes. Between them they amount to a schema extension on `ChargingSession`, one new network rego, three new contract regos, and the adapter wiring the demand-flex and wave-2 devkits already demonstrate.
 
 ## 13. The scheduler is best left to the operator
+{: #13-the-scheduler-is-best-left-to-the-operator }
 
 The three contract policies each price their own contract type, but none of them decides who actually gets a stall. That decision belongs to a scheduler sitting inside the operator, per site, and this note deliberately doesn't try to specify it.
 
@@ -421,10 +448,12 @@ To make it concrete: on a busy evening with three premium reservations pending, 
 An operator that can't produce this number is, I think, running three rate cards rather than a scheduler, and hoping they don't collide.
 
 ## 14. Settlement
+{: #14-settlement }
 
 At the end of a session the network works out what the customer owes, and it does so from the ledger alone — the sequence of intervals, each carrying a state, a duration, a power, a metered energy, and one attribution. Nothing else is consulted, and no human judgement needs to enter.
 
 ### 14.1 Nine line items
+{: #141-nine-line-items }
 
 Each is owned by exactly one policy (§12.2), so nothing is computed in two places.
 
@@ -445,6 +474,7 @@ A reservation session settles the walk-in line items *plus* its own. It is a wal
 The DR rebate is the only part of a demand response event that reaches a customer bill. The event's own settlement — capacity, price, shortfall penalty — is a separate contract between the operator and the utility, settled by its own policy on the demand-flex pattern (§12.2). A driver who was derated is credited at a published rate whether or not the operator's DR bid turned a profit.
 
 ### 14.2 Four choices worth explaining
+{: #142-four-choices-worth-explaining }
 
 **Occupancy is charged only for time the customer is responsible for.** Charging, connected-but-not-yet-flowing, and a customer-caused disconnect all count. Time lost to a charger fault doesn't, so the customer stops paying rent for minutes taken from them. That is a walk-in's whole remedy for an operator fault, and it is what a reservation premium improves on.
 
@@ -461,6 +491,7 @@ The DR rebate is the only part of a demand response event that reaches a custome
 Operator liability is capped per tier. Without a cap an operator can't price its exposure, and a network that can't be underwritten is a hard one to join.
 
 ### 14.3 Seven invariants
+{: #143-seven-invariants }
 
 A settlement is emitted only if all seven hold. If any of them fails, nothing settles and the session goes to a dispute queue.
 
@@ -492,6 +523,7 @@ Every state in Figure 3 is used somewhere. Queued and requested time is delibera
 The full notation, every term as an equation, the disposition matrix and the formal invariants are in **Appendix B**; the ledger they read from is in **Appendix A** and the policy skeletons in **Appendix C**.
 
 ## 15. Worked example
+{: #15-worked-example }
 
 Reservation for 18:00, `GOLD` tier, 60 kW promised. The CPO frees a stall at 18:12. A DR event derates to 30 kW for ten minutes. The charger faults for four minutes. The driver lingers nine minutes after completion at an 80%-full site.
 
@@ -537,6 +569,7 @@ Two details worth pausing on.
 **Idle applies, congestion does not.** The driver stopped at 79%, one point below the congestion limit, so the idle fee governs. The exclusivity invariant holds trivially here — but it is what stops a busy site double-dipping on a driver who charges to 95% *and* then lingers.
 
 ## 16. Back-pressure and trip planning
+{: #16-back-pressure-and-trip-planning }
 
 In late 2022 Tesla renamed its proprietary connector NACS and published the specification for the industry to adopt. Ford committed in May 2023, GM followed within weeks, SAE stood up a task force that June, and the standard went from technical information report in December 2023 to a full recommended practice as J3400 in September 2024 — under two years from opening to open standard.[4][5][6] It was criticised at the time as selling the crown jewels. It looks more like enlightened self-interest: the EV market wasn't going to grow if every OEM had to build its own network, and range anxiety was the binding constraint on adoption.
 
@@ -561,10 +594,12 @@ flowchart LR
 One honest counterargument, worth stating because it is the reason Tesla holds out: unpriced reservations trade throughput for convenience and leave stalls idle waiting for holders who may not show. Tesla's answer to congestion has consistently been price, not allocation — occupancy-gated idle fees, then a state-of-charge-gated congestion fee at busy sites.[9][10] That is much of why reservations here carry a forfeitable fee, a demotion ladder rather than an indefinite hold, and a bounded operator penalty, and why a congestion fee sits alongside them in §14. A reservation system without prices on both sides would, I think, earn the criticism.
 
 ## 17. Out of scope
+{: #17-out-of-scope }
 
 Deliberately excluded: bidirectional flow and V2G settlement (the equation assumes `e_k ≥ 0`), inter-CPO clearing and roaming reconciliation, identity and credential issuance, and dispute *adjudication* procedure beyond emitting a halt. Each needs its own note.
 
 ## 18. What must be standardised
+{: #18-what-must-be-standardised }
 
 Running a charging network well seems to take a whole-system view, and interoperability probably only pays off if the interfaces are simplified, standardised and actually enforced. Concretely, and all of it inside machinery DEG already has:
 
@@ -580,10 +615,12 @@ Everything else — pricing, tier design, waiting rooms, loyalty, and the schedu
 ---
 
 ## Appendix A — Ledger schema
+{: #appendix-a--ledger-schema }
 
 Not a full payload — the shape of the extension, enough to build the rest from. Everything here hangs off the existing `beckn:fulfillment.beckn:deliveryAttributes` in the `ev-charging` devkit, so the envelope, order and payment blocks are unchanged.
 
 ### A.1 The session ledger
+{: #a1-the-session-ledger }
 
 `ChargingSession` gains a **`BecknTimeSeries`** in place of today's flat `chargingTelemetry` — the OpenADR 3.1.0-aligned envelope DEG already publishes at `schema.nfh.global/BecknTimeSeries/v1.0`, and that `DemandFlexPerformance` already uses for meter telemetry. One interval per state change, contiguous, sequenced from zero. Reusing the primitive rather than inventing a shape is what makes the demand-flex reuse in §9 and §14 literal rather than analogical: same envelope, same accessors, same per-interval arithmetic.
 
@@ -654,6 +691,7 @@ Three closed enumerations carry the whole design. `payloadType` is open at the p
 `LIMITING_FACTOR` is the addition that makes penalties arbitrable: it is what separates a charger that underperformed from a battery that tapered, and without it every shortfall claim becomes a negotiation.
 
 ### A.2 The contract reference
+{: #a2-the-contract-reference }
 
 Selected by fulfillment mode, checksum-verified against its registry record:
 
@@ -669,12 +707,15 @@ Selected by fulfillment mode, checksum-verified against its registry record:
 ```
 
 ### A.3 What the CPO publishes per stall
+{: #a3-what-the-cpo-publishes-per-stall }
 
 Session telemetry settles a session that already happened. Forecasting and back-pressure (§10, §16) need the stall's forward state on the catalog: `stallState`, connector types and port side, rated and currently deliverable power, `predictedFreeAt` with a confidence band, queue depth, site demand headroom, active DR event, and maintenance status with the next window.
 
 ## Appendix B — Settlement equations
+{: #appendix-b--settlement-equations }
 
 ### B.1 Notation
+{: #b1-notation }
 
 | Symbol | Meaning | Unit | Source |
 |---|---|---|---|
@@ -706,6 +747,7 @@ Session telemetry settles a session that already happened. Forecasting and back-
 | `γ` | tax rate | fraction | policy |
 
 ### B.2 Terms
+{: #b2-terms }
 
 Ownership of each term is given in §14.1.
 
@@ -773,6 +815,7 @@ $$K_{DR} = \rho E_{def} + \beta T_{ext}, \qquad E_{def} = \sum_{k \,:\, \text{lf
 $$C_N = \nu_f + \nu_v E$$
 
 ### B.3 The equation
+{: #b3-the-equation }
 
 Taxable base is the supply terms. Penalty credits and DR rebates are liquidated damages and incentive payments respectively, and sit outside the tax base.
 
@@ -786,6 +829,7 @@ A negative `A_payable` means the CPO owes the customer. The floor at `−K_max` 
 
 
 ### B.4 Invariants, formally
+{: #b4-invariants-formally }
 
 A settlement is emitted only if all seven hold. I1–I4 are structural and belong in the network policy; I5 to I7 bound or compute money and belong in the contract policies — the cap and disposition coverage in the reservation policy, fee exclusivity in the walk-in policy, and version pinning enforced by the checksum on the policy reference.
 
@@ -800,10 +844,12 @@ A settlement is emitted only if all seven hold. I1–I4 are structural and belon
 Every state in Figure 3 is consumed: `REQUESTED`/`QUEUED` are deliberately unbilled and enter only through I1; `NOTIFIED`/`GRACE` set the demotion clock and `D`; `DEMOTED` feeds `demotion_count`; the four terminal states drive `δ_R`. There is no state that costs nothing and no constant that goes unused.
 
 ## Appendix C — Policy skeletons
+{: #appendix-c--policy-skeletons }
 
 Not complete regos — the exports, the split, and the wiring, enough for someone to write the rest against `demand-flex-networkpolicy.rego` and `demand-flex-contractpolicy.rego` as working references.
 
 ### C.1 File layout
+{: #c1-file-layout }
 
 ```
 specification/policies/
@@ -822,6 +868,7 @@ specification/policies/
 One note on `ev-charging-ledger.rego`: the existing DEG policies are each self-contained, and the README warns that a whole-directory `opa test .` trips over cross-package helper clashes. But three contract policies that each recompute charging time from the same ledger will eventually compute it differently, and the difference surfaces as a dispute months later. A shared derivation package is the lesser evil; it is worth agreeing on before the three regos are written, not after.
 
 ### C.2 Network policy — structure only
+{: #c2-network-policy--structure-only }
 
 ```rego
 # Universal well-formedness for every EV charging message on the network.
@@ -881,6 +928,7 @@ networkPolicies:
 One entry per `networkId`, resolved per message. Both regos see the same ledger, so it must be well-formed under both — which is the argument for publishing the `STATE`, `ATTRIBUTION` and `LIMITING_FACTOR` vocabularies once, as an EV-charging payload-type profile over `BecknTimeSeries` (the way `BecknReportDescriptors` publishes the demand-flex vendor-telemetry vocabulary), and having every network policy reference that profile rather than restate it.
 
 ### C.3 Contract policy — settlement only
+{: #c3-contract-policy--settlement-only }
 
 Same exports as the demand-flex contract policy, so the enforcer needs no new modes: `settlement_components`, `total_settlement`, `revenue_flows`, `violations`.
 
@@ -1014,6 +1062,7 @@ violations contains msg if {
 `driver_rebates` is what crosses into the customer's bill (§14); everything above it settles between the utility and the operator. The difference — `total_settlement` minus the rebates paid out — is the operator's DR margin, and it is one of the three terms its scheduler is trading off in §13.
 
 ### C.4 Wiring
+{: #c4-wiring }
 
 Enforce on formation, inject on settlement — the split the demand-flex devkit already uses:
 
@@ -1036,6 +1085,7 @@ Enforce on formation, inject on settlement — the split the demand-flex devkit 
 That `outputPath` is the point of the whole exercise: the `orderValue.components[]` array that today's devkit examples fill in by hand becomes the output of a checksummed policy that both counterparties evaluated independently and agreed on.
 
 ## References
+{: #references }
 
 1. *Pulse Energy Joins Unified Bharat eCharge Network* — Autocar Professional. MHI-backed launch, NPCI as network operator, BHIM UPI rollout, Independence Day timing. https://www.autocarpro.in/news/pulse-energy-joins-unified-bharat-echarge-as-certified-tech-enabler-134136
 2. *Pulse Energy Connects Over 10,000 EV Chargers to BHIM UPI via Unified Bharat eCharge* — Energetica India. UBC as digital public infrastructure on Beckn; NPCI BHIM Services as platform developer; Network for Humanity as DPI builder. https://www.energetica-india.net/news/pulse-energy-connects-over-10000-ev-chargers-to-bhim-upi-via-unified-bharat-echarge
