@@ -8,9 +8,9 @@ description: Notes, papers and interactive tools on energy systems, optimization
 # is listed by hand here. Add an entry and it appears below.
 extras:
   - title: Smart Home Energy Optimizer
-    subtitle: Battery, EV, water heater and air-conditioning dispatched together against solar output and a price signal. Runs entirely in the browser.
+    subtitle: Batteries, water heater and heat pump scheduled together against solar output, tariffs and grid limits by Dantzig–Wolfe decomposition, with a certified gap to the optimum. Runs entirely in the browser.
     url: /multi_device_optimizer_standalone.html
-    date: August 2026
+    date: September 2026
     tag: Interactive
   - title: Battery Optimizer
     subtitle: Single-device battery dispatch by dynamic programming, with a quiver overlay of the value function. Python via Pyodide, in the browser.
