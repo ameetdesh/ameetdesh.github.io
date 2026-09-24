@@ -67,6 +67,10 @@ tr.it.first td:first-child::after{content:" ✓";color:var(--good)}
 .legend span{cursor:pointer;user-select:none;color:var(--muted)}
 .legend span.off{opacity:.35;text-decoration:line-through}
 .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}
+/* a draggable series: a longer, bolder line with a hollow dot in the middle, like its handles */
+.legend i.drag{width:22px;height:3px;position:relative}
+.legend i.drag::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-4px 0 0 -4px;
+  border-radius:50%;border:1.6px solid var(--knob);background:var(--panel)}
 canvas{display:block;width:100%;height:170px;cursor:crosshair}
 .tip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.14);
      border-radius:8px;padding:7px 9px;font-size:12px;z-index:10;display:none;max-width:340px}
@@ -306,8 +310,9 @@ function chart(sel, spec){
     const el = document.createElement('span');
     const sw = s.dash ? `background:repeating-linear-gradient(90deg,${s.color} 0 5px,transparent 5px 8px)`
              : s.band ? `background:${s.color};opacity:.35;height:8px;vertical-align:0` : `background:${s.color}`;
-    el.innerHTML = `<i style="${sw}"></i>${s.label}`;
-    if(s.hint) el.title = s.hint;
+    const drag = (spec.handles || []).some(hd => hd.id === s.id);
+    el.innerHTML = drag ? `<i class="drag" style="${sw};--knob:${s.color}"></i>${s.label}` : `<i style="${sw}"></i>${s.label}`;
+    if(s.hint || drag) el.title = (s.hint || '') + (drag ? ' (drag the dots on the chart)' : '');
     el.classList.toggle('off', HIDDEN.has(s.id));
     el.onclick = () => { HIDDEN.has(s.id) ? HIDDEN.delete(s.id) : HIDDEN.add(s.id); el.classList.toggle('off'); draw(); };
     lg.appendChild(el);
