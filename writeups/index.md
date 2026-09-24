@@ -8,7 +8,7 @@ description: Notes, papers and interactive tools on energy systems, optimization
 # is listed by hand here. Add an entry and it appears below.
 extras:
   - title: Smart Home Energy Optimizer
-    subtitle: Batteries, water heater and heat pump scheduled together against solar output, tariffs and grid limits by Dantzig–Wolfe decomposition, with a certified gap to the optimum, or by ADMM for comparison. Drag the prices and household load to set your own. Runs entirely in the browser.
+    subtitle: Batteries, water heater and heat pump scheduled together against solar output, tariffs and grid limits by Dantzig–Wolfe decomposition, with a certified gap to the optimum, or by ADMM for comparison. Drag the prices, household load and hot-water draw to set your own. Runs entirely in the browser.
     url: /multi_device_optimizer_standalone.html
     date: September 2026
     tag: Interactive
