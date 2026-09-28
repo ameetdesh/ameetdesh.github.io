@@ -136,7 +136,7 @@ canvas{display:block;width:100%;height:170px;cursor:crosshair}
         <div class="row"><label title="How the final blend becomes one runnable plan per device.">Recovery</label>
           <select id="recovery"><option value="milp">best combination</option><option value="maxweight">heaviest plan</option></select></div>
         <input type="hidden" id="solver" value="numpy">
-        <div class="row"><label title="Iteration cap. DW stops earlier once its gap closes; ADMM stops once it converges or has not improved for 20 rounds.">Max iterations</label><output id="o_max_iter"></output><input type="range" id="max_iter" min="1" max="100" value="100"></div>
+        <div class="row"><label title="Iteration cap. DW stops earlier once its gap closes; textbook ADMM once its residuals are small (the legacy loop also after 20 rounds without improvement).">Max iterations</label><output id="o_max_iter"></output><input type="range" id="max_iter" min="1" max="100" value="100"></div>
         <div class="row"><label title="States in each battery DP (actions: half as many). 50 is fast and close; finer grids recover the last few percent of savings, at a cost in solve time.">DP state grid</label><output id="o_grid"></output><input type="range" id="grid" min="50" max="400" step="50" value="50"></div>
         <div class="chips" id="optChips">
           <span class="chip on" data-opt="battery_in_master" title="Batteries as LP variables in the master (recommended). Off: they bid plans like the others.">Batteries in LP</span>
