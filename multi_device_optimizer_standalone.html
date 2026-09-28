@@ -49,6 +49,8 @@ button.solve:disabled{opacity:.55;cursor:default}
 .kpi .v{font-size:16px;font-weight:650;font-variant-numeric:tabular-nums}
 .status{margin-top:8px;font-size:12px;color:var(--muted)}
 .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.paused{display:none;margin-left:8px;padding:1px 8px;border-radius:10px;border:1px solid var(--warn);color:var(--warn);
+  font-size:12px;font-weight:600;text-transform:none;letter-spacing:0}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th{font-weight:500;color:var(--faint);font-size:11px;text-align:right;padding:2px 6px;cursor:help;position:sticky;top:0;background:var(--panel)}
 th:first-child{text-align:left}
@@ -185,7 +187,7 @@ canvas{display:block;width:100%;height:170px;cursor:crosshair}
   </div>
 
   <div class="right">
-    <div class="card" id="chConv"><h2>Convergence <span class="note">click a point to select that iteration</span></h2><div class="legend"></div><canvas></canvas></div>
+    <div class="card" id="chConv"><h2>Convergence <span class="paused" id="pausedTag"></span> <span class="note">click a point to select that iteration</span></h2><div class="legend"></div><canvas></canvas></div>
     <div class="card" id="chPrice"><h2>Prices <span class="note">per kWh · drag the dots to edit import / export</span></h2><div class="legend"></div><canvas></canvas></div>
     <div class="card" id="chPower"><h2>Power <span class="note">kW · + = drawn from the meter · drag the dots to edit load and hot-water draw</span></h2><div class="legend"></div><canvas style="height:210px"></canvas></div>
     <details class="card" id="ledger"><summary><h2 style="display:inline-flex;margin:0">Who saves what <span class="note">each player's share of the bill · open to compute (one extra plan, with no PV)</span></h2></summary>
@@ -313,6 +315,8 @@ async function solve(resume = false, fromButton = false){
   CHUNKED = par.method === 'admm';
   const pid = resume && PAUSED_ID ? PAUSED_ID : String(Date.now()) + Math.random().toString(36).slice(2, 8);
   PAUSED_ID = null; PAUSE_ASKED = false; ABORT = false;
+  $('#pausedTag').style.display = 'none';
+  if(resume && CHUNKED) $('#status').innerHTML = `<b>ADMM</b> · <b class="warn">resumed</b> from iteration ${DATA.summary.iterations}…`;
   SOLVING = true; b.disabled = !CHUNKED; b.textContent = CHUNKED ? 'Solving… · pause' : 'Solving…';
   let poll = null;
   if(!window.__HEMS_API__ && !CHUNKED) poll = setInterval(async () => {
@@ -537,6 +541,9 @@ function partsHtml(p){
 /* ---------------------------------------------------------------- render */
 function render(){
   const s = DATA.summary, admm = s.method === 'admm';
+  const tag = $('#pausedTag'), paused = s.stop_reason === 'paused';
+  tag.style.display = paused ? 'inline-block' : 'none';
+  tag.textContent = paused ? `paused at iteration ${s.iterations} · the plots show the best plan so far · Resume carries on` : '';
   $('#kPlan').textContent = f3(s.upper); $('#kBound').textContent = admm ? '–' : f3(s.lower);
   if(admm){ $('#kGap').textContent = '–'; $('#kGap').className = 'v'; } else setGap(s.gap);
   $('#kBound').parentElement.title = admm ? 'ADMM computes no lower bound.' : '';
@@ -603,7 +610,7 @@ function renderIters(){
       `<div class="t">Iteration ${it.index}</div>Runnable plan recovered from this iteration ${f4(it.plan_value)}`
       + (it.relaxed_value != null ? ` · fractional plan ${f4(it.relaxed_value)}` : '') + ` · best so far ${f4(it.best_plan)} · ρ ${it.rho}`
       + (it.snapshot === false ? '<div style="color:var(--faint)">Plan not kept (about ten iterations are); a click shows the nearest kept one.</div>' : '')
-      + (it.index === s.selected_round ? `<div class="ok">★ the returned plan is this ${unit.toLowerCase()}'s` + (opts.polish ? ', then polished' : '') + '</div>' : ''),
+      + (it.index === s.selected_round ? `<div class="ok">★ the returned plan is this iteration's` + (opts.polish ? ', then polished' : '') + '</div>' : ''),
       (it.index === s.selected_round ? 'first' : '') + (it.snapshot === false ? ' nosnap' : '')));
     return;
   }
