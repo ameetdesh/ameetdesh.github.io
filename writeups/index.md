@@ -12,6 +12,11 @@ extras:
     url: /multi_device_optimizer_standalone.html
     date: September 2026
     tag: Interactive
+  - title: Frequency Domain Control Design (paper)
+    subtitle: The full manuscript. Linear control design as a quadratic form in the controller at each frequency, giving a closed-form optimum, causal and fixed-structure designs by Wiener–Hopf factorization, and the value of sensing; with a software package and worked examples on wide-area damping of power systems and vibration isolation.
+    url: /writeups/FreqDomDesign_paper.pdf
+    date: September 2026
+    tag: PDF
   - title: Battery Optimizer
     subtitle: Single-device battery dispatch by dynamic programming, with a quiver overlay of the value function. Python via Pyodide, in the browser.
     url: /pyodide_optimizer_standalone.html
