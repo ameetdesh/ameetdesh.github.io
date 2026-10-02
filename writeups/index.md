@@ -18,7 +18,7 @@ extras:
     date: September 2026
     tag: PDF
   - title: Battery Optimizer
-    subtitle: Single-device battery dispatch by dynamic programming, with a quiver overlay of the value function. Python via Pyodide, in the browser.
+    subtitle: One battery's dynamic programme, solved once and then read fast from any state, with its policy drawn as a flow field. Python via Pyodide, in the browser.
     url: /pyodide_optimizer_standalone.html
     date: August 2026
     tag: Interactive
